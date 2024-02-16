@@ -1,0 +1,105 @@
+---
+title: "MPA Fisheries"
+author: "Dave Fisher"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/home/dmf/bahamas-mpa/cv/scripts/")
+```
+
+```{r echo=F}
+library(formattable)
+library(foreign)
+library(dplyr)
+library(rgdal)
+library(rgeos)
+options(dplyr.width = Inf)
+# library(svglite)
+
+# setwd("/home/dmf/bahamas-mpa/cv/scripts/")
+
+results <- read.csv('../mpa-removeall-habitat/scenario_data/coastal_popmetrics_2scenarios_habrolecat.csv', stringsAsFactors = F)
+
+tab1 <- results[, c('Name', 'inc_sum_y', 'pop_sum_y')]
+names(tab1)[1] <- c("ISLAND")
+
+# subregions <- readOGR(dsn='../cv-fromjess/Bahamas_regionalCV_Inputs', layer='LandPoly_Bahamas_subregions_v2')
+mpas <- readOGR(dsn="../../gis/mpa/", layer="bhs_poli_pa_2017_utm_iucn-edits_holesfilled_40MPAs")
+mpas <- mpas@data[,c("AREANAM", "ISLAND")]
+
+mpas$ISLAND <- gsub(mpas$ISLAND, pattern="Acklins", replacement="Acklins/Crooked", fixed = T)
+tab1$ISLAND <- gsub(tab1$ISLAND, pattern="Exumas", replacement="Exuma")
+
+dat <- left_join(tab1, mpas, by="ISLAND")
+dat$AREANAM <- gsub(dat$AREANAM, pattern = "National Park", replacement = "NP", fixed = T)
+dat$AREANAM <- gsub(dat$AREANAM, pattern = "Marine Park", replacement = "MP", fixed = T)
+dat$AREANAM <- gsub(dat$AREANAM, pattern = "Marine Managed Area", replacement = "MMA", fixed = T)
+dat$AREANAM <- gsub(dat$AREANAM, pattern = "Marine Reserve", replacement = "MR", fixed = T)
+
+dat2 <- dat[,c("ISLAND", "AREANAM")] %>%
+  group_by(ISLAND) %>%
+  summarize(mpa_list=paste(AREANAM, collapse=" "))
+
+dat3 <- left_join(dat2, tab1)
+write.csv(dat3, "../figs/cv_popmetrics_table.csv", row.names=F)
+
+tab1[is.na(tab1)] <- 0
+
+tab1$prch_pop <- round(tab1$prch_pop, digits=2)
+tab1$prch_more65 <- round(tab1$prch_more65, digits=2)
+tab1$prch_inc <- round(tab1$prch_inc, digits=2)
+
+```
+```{r cv_table_values_network, echo=F, fig.width=5, fig.height=9, fig.path="/home/dmf/bahamas-mpa/cv/figs/"}
+formattable(tab1,
+            list(
+  Region = formatter("span", style = x ~ style(direction="ltr")),
+  # diff_harvest_mil = formatter("span",
+  #                         style = x ~ sprintf("%.2f", x))
+  # grade = formatter("span", style = x ~ ifelse(x == "A", 
+  #                                              style(color = "green", font.weight = "bold"), NA)),
+  area(col = c(prch_pop)) ~ normalize_bar("pink", 0.0),
+  area(col = c(prch_more65)) ~ normalize_bar("orange", 0.0),
+  area(col = c(prch_inc)) ~ normalize_bar("yellow", 0.0)
+  # diff_value_mil = formatter("span",
+  #                              style = x ~ sprintf("%.2f", x))
+  # registered = formatter("span",
+  #                        style = x ~ style(color = ifelse(x, "green", "red")),
+  #                        x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No")))
+))
+```
+
+
+```{r swmma}
+swmma <- read.csv('../swmma-scenarios/coastal_popmetrics_2scenarios.csv', stringsAsFactors = F)
+
+tab2 <- swmma[swmma$category == 'high', c('Name', 'prch_pop', 'prch_more65', 'prch_inc')]
+names(tab2)[1] <- c("Region")
+
+tab2[is.na(tab2)] <- 0
+```
+
+```{r cv_table_values_swmma, echo=F, fig.width=5, fig.height=9, fig.path="/home/dmf/bahamas-mpa/cv/figs/"}
+formattable(tab2,
+            list(
+  Region = formatter("span", style = x ~ style(direction="ltr")),
+  # diff_harvest_mil = formatter("span",
+  #                         style = x ~ sprintf("%.2f", x))
+  # grade = formatter("span", style = x ~ ifelse(x == "A", 
+  #                                              style(color = "green", font.weight = "bold"), NA)),
+  area(col = c(prch_pop)) ~ normalize_bar("pink", 0.0),
+  area(col = c(prch_more65)) ~ normalize_bar("orange", 0.0),
+  area(col = c(prch_inc)) ~ normalize_bar("yellow", 0.0)
+  # diff_value_mil = formatter("span",
+  #                              style = x ~ sprintf("%.2f", x))
+  # registered = formatter("span",
+  #                        style = x ~ style(color = ifelse(x, "green", "red")),
+  #                        x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No")))
+))
+```
+
